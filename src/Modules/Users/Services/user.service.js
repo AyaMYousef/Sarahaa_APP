@@ -10,6 +10,7 @@ import BlackListedToken from "../../../DB/Models/black-listed-tokens.model.js";
 
 import dotenv from 'dotenv';
 import { generateToken, verifyToken } from '../../../../Utils/tokens.utils.js';
+
 dotenv.config();
 
 const uniqueString = customAlphabet(process.env.NANO_ID_STRING, Number(process.env.NANO_ID_NUMBER));
@@ -108,12 +109,24 @@ export const SignInService = async (req, res) => {
             { _id: user._id, email: user.email },
             process.env.JWT_ACCESS_SECRET,
             {
-                expiresIn: process.env.JWT_EXPIRES_IN,
+                // add parseInt() if you will pass a value in seconds
+                expiresIn: parseInt(process.env.JWT_EXPIRES_IN),
+                jwtid: uuidv4()
+            }
+        )// end of accesstoken
+
+        const refreshtoken = generateToken(
+
+            { _id: user._id, email: user.email },
+            process.env.JWT_REFRESH_SECRET,
+            {
+                // add parseInt() if you will pass a value in seconds
+                expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
                 jwtid: uuidv4()
             }
         )
 
-        return res.status(200).json({ message: "User logged in successfully", accesstoken });
+        return res.status(200).json({ message: "User logged in successfully", accesstoken, refreshtoken });
     }
     catch (error) {
         return res.status(500).json({ message: "Error occurred", error: error.message });
@@ -138,24 +151,6 @@ export const UpdateUserService = async (req, res) => {
         if (!user) {
             return res.status(404).json({ message: "User not found" })
         }
-
-        /* if (firstName)
-             user.firstName = firstName;
-         if (lastName)
-             user.lastName = lastName;
-         if (email) {
-             const isEmailExist = await User.findOne({ email })
-             if (isEmailExist) {
-                 return res.status(409).json({ message: "User already exist" });
-             }
-             user.email = email;
-         }
-         if (age)
-             user.age = age;
-         if (gender)
-             user.gender = gender;
- 
-         await user.save()*/
         return res.status(200).json({ message: "User updated successfully", user });
     }
     catch (error) {
@@ -185,13 +180,13 @@ export const DeleteUserService = async (req, res) => {
 //List Users
 
 export const ListUserService = async (req, res) => {
-    let users = await User.find();
-    users = users.map((user) => {
-        return {
-            ...user._doc,
-            phoneNumber: asymmetricDecryption(user.phoneNumber)
-        }
-    })
+    let users = await User.find().populate('Messages');
+    /*  users = users.map((user) => {
+          return {
+              ...user._doc,
+              phoneNumber: asymmetricDecryption(user.phoneNumber)
+          }
+      })*/
 
     res.status(200).json({ users });
 };
@@ -199,19 +194,38 @@ export const ListUserService = async (req, res) => {
 // black listed tokens
 
 export const LogoutService = async (req, res) => {
-
-    const { accesstoken } = req.headers
-    const decodedData = verifyToken(accesstoken, process.env.JWT_ACCESS_SECRET)
-
+    //console.log(user.loggedUser)
+    const { token: { tokenId, expirationDate }, user: { _id } } = req.loggedUser
     // convert expiration field into date format
 
-    const expirationDate = new Date(decodedData.exp * 1000)
 
-    const blackListedToken = await BlackListedToken.create({
-        tokenId: decodedData.jti,
-        expirationDate
+
+    await BlackListedToken.create({
+        tokenId,
+        expirationDate: new Date(expirationDate * 1000),
+        userId: _id
     });
 
     return res.status(200).json({ message: "User logged out successfully" });
 
+}
+
+
+export const RefreshTokenService = async (req, res) => {
+    const { refreshtoken } = req.headers
+
+    const decodedData = verifyToken(refreshtoken, process.env.JWT_REFRESH_SECRET)
+
+    const accesstoken = generateToken(
+
+        { _id: decodedData._id, email: decodedData.email },
+        process.env.JWT_ACCESS_SECRET,
+        {
+
+            expiresIn: process.env.JWT_EXPIRES_IN,
+            jwtid: uuidv4() // will be used to revoke token
+        }
+    )
+
+    return res.status(200).json({ message: "User Token refreshed Successfully" }, accesstoken);
 }

@@ -11,8 +11,9 @@ export const authenticationMiddleWare = async (req, res, next) => {
         return res.status(400).json({ message: "Please LogIn first" });
 
     //Verify Token
+        const decodedData = verifyToken(accesstoken, process.env.JWT_ACCESS_SECRET)
 
-    const decodedData = verifyToken(accesstoken, process.env.JWT_ACCESS_SECRET)
+
 
     if (!decodedData.jti) {
         return res.status(401).json({ message: "Invalid token" });
@@ -35,7 +36,7 @@ export const authenticationMiddleWare = async (req, res, next) => {
         return res.status(404).json({ message: "User not found" })
     }
 
-    req.loggedUser = user
+    req.loggedUser = { user, token: { tokenId: decodedData.jti, expirationDate: decodedData.exp } }
 
     next()
 }

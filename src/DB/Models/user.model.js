@@ -92,7 +92,11 @@ const userSchema = new mongoose.Schema({
 
 userSchema.index({ firstName: 1, lastName: 1 }, { name: 'idx_first_last_unique', unique: true });
 
-
+userSchema.virtual("Messages", {
+    ref: "Messages",
+    localField: "_id",
+    foreignField: "receiverId"
+})
 const User = mongoose.model("User", userSchema)
 
 export default User
