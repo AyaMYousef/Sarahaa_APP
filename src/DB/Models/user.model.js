@@ -53,7 +53,9 @@ const userSchema = new mongoose.Schema({
     otps: {
         confirmation: String,
         confirmationCreatedAt: Date,
-        resetPassword: String
+        resetPassword: String,
+        confirmationAttempts: { type: Number, default: 0 },
+        confirmationBlockedUntil: Date
     },
     isConfirmed: {
         type: Boolean,

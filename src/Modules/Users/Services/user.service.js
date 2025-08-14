@@ -14,23 +14,26 @@ import { generateToken, verifyToken } from '../../../../Utils/tokens.utils.js';
 dotenv.config();
 
 const uniqueString = customAlphabet(process.env.NANO_ID_STRING, Number(process.env.NANO_ID_NUMBER));
-const emitter = new EventEmitter();
+//const emitter = new EventEmitter();
 
 export const ConfirmEmailService = async (req, res, next) => {
     const { email, otp } = req.body
 
 
     const user = await User.findOne({ email, isConfirmed: false })
-    if (!user) {
+    if (!user || user.isConfirmed) {
         // return res.status(400).json({ message: 'User not found or already confirmed' })
         return next(new Error('User not found or already confirmed', { cause: 400 }));
+    }
+    if (user.otps.confirmationBlockedUntil && user.otps.confirmationBlockedUntil > Date.now()) {
+        const waitTime = Math.ceil((user.otps.confirmationBlockedUntil - Date.now()) / 1000);
+        return res.status(400).json({ message: `Too many wrong attempts. Try again in ${waitTime} seconds` });
     }
 
     // Check if OTP timestamp exists
     if (!user.otps?.confirmationCreatedAt) {
         return res.status(400).json({ message: 'OTP expired or not generated' });
     }
-
     // Check if OTP expired (2 minutes = 120 seconds)
     const now = Date.now();
     const otpCreatedTime = new Date(user.otps.confirmationCreatedAt).getTime();
@@ -40,16 +43,27 @@ export const ConfirmEmailService = async (req, res, next) => {
 
     const isOtpMatched = bcrypt.compareSync(otp, user.otps?.confirmation);
     if (!isOtpMatched) {
-        return res.status(400).json({ message: 'OTP invalid' });
+    user.otps.confirmationAttempts = (user.otps.confirmationAttempts || 0) + 1;
+
+    if (user.otps.confirmationAttempts >= 5) {
+        user.otps.confirmationBlockedUntil = new Date(Date.now() + 5 * 60 * 1000);
+        await user.save();
+        return res.status(400).json({ message: 'Too many wrong attempts. You are banned for 5 minutes' });
     }
+
+    await user.save();
+    return res.status(400).json({ message: 'OTP invalid' });
+}
 
     user.isConfirmed = true
     user.otps.confirmation = undefined
     user.otps.confirmationCreatedAt = undefined
+    user.otps.confirmationAttempts = 0;
+    user.otps.confirmationBlockedUntil = undefined;
 
     await user.save()
     res.status(200).json({ message: 'confirmed' })
-}
+};
 
 export const SignUpService = async (req, res) => {
     try {
@@ -82,7 +96,9 @@ export const SignUpService = async (req, res) => {
             otps: {
                 confirmation: await bcrypt.hash(otp,
                     Number(process.env.USER_SALTED_HASH)),
-                confirmationCreatedAt: new Date()
+                confirmationCreatedAt: new Date(),
+                confirmationAttempts: 0,
+                confirmationBlockedUntil: undefined
             }
 
         });
