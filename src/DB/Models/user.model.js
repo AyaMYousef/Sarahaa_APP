@@ -52,6 +52,7 @@ const userSchema = new mongoose.Schema({
     },
     otps: {
         confirmation: String,
+        confirmationCreatedAt: Date,
         resetPassword: String
     },
     isConfirmed: {

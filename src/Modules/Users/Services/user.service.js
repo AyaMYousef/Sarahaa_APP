@@ -25,6 +25,19 @@ export const ConfirmEmailService = async (req, res, next) => {
         // return res.status(400).json({ message: 'User not found or already confirmed' })
         return next(new Error('User not found or already confirmed', { cause: 400 }));
     }
+
+    // Check if OTP timestamp exists
+    if (!user.otps?.confirmationCreatedAt) {
+        return res.status(400).json({ message: 'OTP expired or not generated' });
+    }
+
+    // Check if OTP expired (2 minutes = 120 seconds)
+    const now = Date.now();
+    const otpCreatedTime = new Date(user.otps.confirmationCreatedAt).getTime();
+    if ((now - otpCreatedTime) / 1000 > 120) {
+        return res.status(400).json({ message: 'OTP expired' });
+    }
+
     const isOtpMatched = bcrypt.compareSync(otp, user.otps?.confirmation);
     if (!isOtpMatched) {
         return res.status(400).json({ message: 'OTP invalid' });
@@ -32,6 +45,7 @@ export const ConfirmEmailService = async (req, res, next) => {
 
     user.isConfirmed = true
     user.otps.confirmation = undefined
+    user.otps.confirmationCreatedAt = undefined
 
     await user.save()
     res.status(200).json({ message: 'confirmed' })
@@ -65,7 +79,12 @@ export const SignUpService = async (req, res) => {
             age,
             gender,
             phoneNumber: encryptPhoneNumber,
-            otps: { confirmation: await bcrypt.hash(otp, Number(process.env.USER_SALTED_HASH)) }
+            otps: {
+                confirmation: await bcrypt.hash(otp,
+                    Number(process.env.USER_SALTED_HASH)),
+                confirmationCreatedAt: new Date()
+            }
+
         });
 
         const { password: _, ...safeUser } = user.toObject();
