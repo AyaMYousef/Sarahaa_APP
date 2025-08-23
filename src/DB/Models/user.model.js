@@ -1,5 +1,6 @@
 import mongoose, { set } from "mongoose";
 import bcrypt from "bcrypt";
+import { GenderEnum, RolesEnum } from "../../common/user.enum.js";
 
 
 const userSchema = new mongoose.Schema({
@@ -31,8 +32,13 @@ const userSchema = new mongoose.Schema({
     },
     gender: {
         type: String,
-        enum: ["male", "female"],
+        enum: Object.values(GenderEnum),
         default: "male"
+    },
+    role: {
+        type: String,
+        enum: Object.values(RolesEnum),
+        default: "user"
     },
     email: {
         type: String,
