@@ -2,12 +2,15 @@ import { Router } from "express";
 import * as UC from "./Services/user.service.js";
 import { authenticationMiddleWare } from "../../Middleware/authentication.middleware.js";
 import { authorizationMiddleware } from "../../Middleware/authorization.middleware.js";
+import {validationMiddleware} from "../../Middleware/validation.middleware.js";
 import { Privillages, RolesEnum } from "../../common/user.enum.js";
+import { SignUpSchema } from "../../../Validators/Schemas/user.schema.js";
+
 
 const router = Router();
 
 
-router.post('/signup', UC.SignUpService);
+router.post('/signup', validationMiddleware(SignUpSchema),UC.SignUpService);
 router.post('/signin', UC.SignInService);
 router.put('/updateUser', authenticationMiddleWare, UC.UpdateUserService);
 router.post('/logout', authenticationMiddleWare, UC.LogoutService);
