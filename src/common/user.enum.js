@@ -24,3 +24,9 @@ export const Privillages = {
     USER_ADMIN: [RolesEnum.USER, RolesEnum.ADMIN],
     USER_SUPER_ADMIN: [RolesEnum.USER, RolesEnum.SUPER_ADMIN]
 }
+
+
+export const ProvidersEnum = {
+    LOCAL: "local",
+    GOOGLE: "google"
+}

@@ -16,7 +16,8 @@ export const SignUpSchema = {
         confirmPassword: Joi.string().valid(Joi.ref('password')),
         age: Joi.string().min(18).required(),
         gender: Joi.string().valid(...Object.values(GenderEnum)).required(),
-        phoneNumber: Joi.string().required()
+        phoneNumber: Joi.string().required(),
 
     })
 }
+

@@ -1,6 +1,6 @@
 import mongoose, { set } from "mongoose";
 import bcrypt from "bcrypt";
-import { GenderEnum, RolesEnum } from "../../common/user.enum.js";
+import { GenderEnum, RolesEnum , ProvidersEnum} from "../../common/user.enum.js";
 
 
 const userSchema = new mongoose.Schema({
@@ -15,14 +15,11 @@ const userSchema = new mongoose.Schema({
     lastName: {
         type: String,
         required: true,
-        minLength: [3, "Last Name must be at least 3 chars long"],
-        maxLength: 20,
         lowercase: true,
-        trim: true
+    
     },
     age: {
         type: Number,
-        required: true,
         min: [18, "Age should not be less than 18 years old"],
         max: [100, "Max age is 100 years"],
         index: {
@@ -39,6 +36,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: Object.values(RolesEnum),
         default: "user"
+    },
+    provider:{
+        type:String,
+        enum: Object.values(ProvidersEnum),
+        default:ProvidersEnum.LOCAL
     },
     email: {
         type: String,
@@ -68,9 +70,9 @@ const userSchema = new mongoose.Schema({
         default: false
 
     },
+    googleSub:String,
     phoneNumber: {
-        type: String,
-        required: true
+        type: String
     },
 },
     {

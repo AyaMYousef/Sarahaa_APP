@@ -7,9 +7,10 @@ import { customAlphabet, nanoid } from 'nanoid';
 import EventEmitter from 'events';
 import { v4 as uuidv4 } from 'uuid';
 import BlackListedToken from "../../../DB/Models/black-listed-tokens.model.js";
-
+import { OAuth2Client } from 'google-auth-library'
 import dotenv from 'dotenv';
 import { generateToken, verifyToken } from '../../../../Utils/tokens.utils.js';
+import { ProvidersEnum } from '../../../common/user.enum.js';
 
 dotenv.config();
 
@@ -43,17 +44,17 @@ export const ConfirmEmailService = async (req, res, next) => {
 
     const isOtpMatched = bcrypt.compareSync(otp, user.otps?.confirmation);
     if (!isOtpMatched) {
-    user.otps.confirmationAttempts = (user.otps.confirmationAttempts || 0) + 1;
+        user.otps.confirmationAttempts = (user.otps.confirmationAttempts || 0) + 1;
 
-    if (user.otps.confirmationAttempts >= 5) {
-        user.otps.confirmationBlockedUntil = new Date(Date.now() + 5 * 60 * 1000);
+        if (user.otps.confirmationAttempts >= 5) {
+            user.otps.confirmationBlockedUntil = new Date(Date.now() + 5 * 60 * 1000);
+            await user.save();
+            return res.status(400).json({ message: 'Too many wrong attempts. You are banned for 5 minutes' });
+        }
+
         await user.save();
-        return res.status(400).json({ message: 'Too many wrong attempts. You are banned for 5 minutes' });
+        return res.status(400).json({ message: 'OTP invalid' });
     }
-
-    await user.save();
-    return res.status(400).json({ message: 'OTP invalid' });
-}
 
     user.isConfirmed = true
     user.otps.confirmation = undefined
@@ -70,7 +71,7 @@ export const SignUpService = async (req, res) => {
         const { firstName, lastName, email, password, age, gender, phoneNumber } = req.body;
 
         // Check if user exists
-        const isUserExist = await User.findOne({ email });
+        const isUserExist = await User.findOne({ email, provider: ProvidersEnum.LOCAL });
         if (isUserExist) {
             return res.status(409).json({ message: "User already exists" });
         }
@@ -263,4 +264,72 @@ export const RefreshTokenService = async (req, res) => {
     )
 
     return res.status(200).json({ message: "User Token refreshed Successfully" }, accesstoken);
+}
+
+
+//SignUp / login with  Gmail
+
+export const authServiceGmail = async (req, res) => {
+
+    const { idToken } = req.body
+    const client = new OAuth2Client();
+    const ticket = await client.verifyIdToken({
+        idToken,
+        audience: process.env.WEB_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { email, given_name, family_name, email_verified, sub } = ticket.getPayload();
+    if (!email_verified) {
+        return res.status(400).json({ message: "Email is not verified" })
+    }
+
+    const isUserExist = await User.findOne({ googleSub: sub })
+
+    if (!isUserExist) {
+
+        const user = await User.create({
+            firstName: given_name,
+            lastName: family_name || '',
+            email,
+            provider: ProvidersEnum.GOOGLE,
+            isConfirmed: true,
+            password: hashSync(uniqueString(), +process.env.USER_SALTED_HASH)
+        })
+          }
+   
+  
+    else {
+
+        isUserExist.email = email
+        isUserExist.firstName = given_name
+        isUserExist.lastName = family_name || ' '
+        isUserExist.googleSub = sub
+        await isUserExist.save()
+    }
+         //Generate token for the loggedIn User
+
+        const accesstoken = generateToken(
+
+            { _id: user._id, email: user.email },
+            process.env.JWT_ACCESS_SECRET,
+            {
+                // add parseInt() if you will pass a value in seconds
+                expiresIn: parseInt(process.env.JWT_EXPIRES_IN),
+                jwtid: uuidv4()
+            }
+        )// end of accesstoken
+
+        const refreshtoken = generateToken(
+
+            { _id: user._id, email: user.email },
+            process.env.JWT_REFRESH_SECRET,
+            {
+                // add parseInt() if you will pass a value in seconds
+                expiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+                jwtid: uuidv4()
+            }
+        )
+    //return res.status(400).json({message:"User already exists"})
+    res.status(200).json({ message: "User Signed Up successfully", tokens: { accesstoken, refreshtoken } });
 }

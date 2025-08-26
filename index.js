@@ -2,15 +2,29 @@ import express from "express"
 import userRouter from './src/Modules/Users/user.controller.js'
 import messageRouter from './src/Modules/Messages/message.controller.js'
 import dbConnection from "./src/DB/db.connection.js";
-
+import cors from "cors"
 import dotenv from 'dotenv';
 dotenv.config();
 
 
 
 const app = express();
+
 app.use(express.json());
 
+const whitelist = process.env.WHITE_LISTED_ORIGINS
+const corsOptions = {
+    origin: function (origin, callback) {
+        if (whitelist.includes(origin)) {
+            callback(null, true)
+        }
+        else {
+            callback(new Error('Not allowed by cors'));
+        }
+    }
+}
+
+app.use(cors(corsOptions))
 //Routes
 app.use('/api/users', userRouter);
 app.use("/api/messages", messageRouter);
