@@ -3,6 +3,9 @@ import userRouter from './src/Modules/Users/user.controller.js'
 import messageRouter from './src/Modules/Messages/message.controller.js'
 import dbConnection from "./src/DB/db.connection.js";
 import cors from "cors"
+import morgan from "morgan";
+import { rateLimit } from 'express-rate-limit';
+import helmet from 'helmet'
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -23,8 +26,14 @@ const corsOptions = {
         }
     }
 }
-
+const limiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	limit: 10
+})
+app.use(limiter)
+app.use(helmet())
 app.use(cors(corsOptions))
+app.use(morgan('dev'))
 //Routes
 app.use('/api/users', userRouter);
 app.use("/api/messages", messageRouter);
