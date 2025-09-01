@@ -18,18 +18,18 @@ app.use(express.json());
 const whitelist = process.env.WHITE_LISTED_ORIGINS
 const corsOptions = {
     origin: function (origin, callback) {
-           callback(null, true)
-       /* if (whitelist.includes(origin)) {
+        /*allow all cors  callback(null, true)*/
+        if (whitelist.includes(origin)) {
             callback(null, true)
         }
         else {
             callback(new Error('Not allowed by cors'));
-        }*/
+        }
     }
 }
 const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	limit: 10
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    limit: 10
 })
 app.use(limiter)
 app.use(helmet())
